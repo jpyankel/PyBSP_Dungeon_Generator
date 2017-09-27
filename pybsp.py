@@ -10,12 +10,42 @@ def generateDungeon2DList (dungeonSize = (100, 100), minNodeSize = (20, 20)):
     newTree = TreeNode((0,0), dungeonSize, minNodeSize)
 
     # Create rooms within the given partitions:
+    # Convert from tree to slices list:
+    partitionList = newTree.getPartitionsList()
 
-def generateDungeonTreeVisualize():
-    pass
+def generateDungeonPartitionsVisualize(dungeonSize = (100, 100),
+    minNodeSize = (20, 20), winWidth=500, winHeight=500):
+    """
+        Generates a dungeon tree and uses TKinter to draw a visual of the
+         partitions.
+    """
+    dungeonTree = TreeNode((0,0), dungeonSize, minNodeSize)
+    partitions = dungeonTree.getPartitionsList()
+    print("Displaying partitions:", partitions)
+    _visualizeDungeonTreePartitions(dungeonSize, partitions, winWidth,
+                                    winHeight)
 
-def _visualizeDungeonTree ():
-    pass
+def _visualizeDungeonTreePartitions (originalSize, partitions, winWidth,
+                                     winHeight):
+    """
+        Draws partitions in a Tkinter window given a list of partitions.
+    """
+    import tkinter as tk
+    root = tk.Tk()
+    canvas = tk.Canvas(root, width=winWidth, height=winHeight)
+    canvas.pack()
+    # Because our window size may not match our original size, we need scale:
+    scaleX = winWidth/originalSize[0]
+    scaleY = winHeight/originalSize[1]
+    margin = 2
+    # Draw blank rectangles with borders to represent partitions:
+    for bounds in partitions:
+        initialX = bounds[0]*scaleX + margin
+        initialY = bounds[1]*scaleY + margin
+        endX = bounds[2]*scaleX - margin
+        endY = bounds[3]*scaleY - margin
+        canvas.create_rectangle(initialX, initialY, endX, endY, width=margin)
+    root.mainloop() # Note, Will block until window is closed!
 
 class TreeNode ():
     """
@@ -61,6 +91,26 @@ class TreeNode ():
                                                (bounds[0], bounds[1]),
                                                minNodeSize, iteration+1)
 
+    def getPartitionsList (self, partitionList=[]):
+        """
+            Returns this tree's slices in list form.
+            E.g. [(0,0,100,100)]
+            Slices are found at the roots of this tree (the node which has no
+             other nodes attached)
+        """
+        # If we are a root node, we add our bounds to the list:
+        if self.beforeSplitNode == None or self.afterSplitNode == None:
+            partitionList.append((self.origin[0], self.origin[1],
+                                  self.bounds[0], self.bounds[1]))
+        else:
+            # We need to go to a deeper node:
+            # Destructively modify our partitionList through recursion:
+            if self.beforeSplitNode != None:
+                self.beforeSplitNode.getPartitionsList(partitionList)
+            if self.afterSplitNode != None:
+                self.afterSplitNode.getPartitionsList(partitionList)
+        return partitionList # This will only matter at the top element!
+
     def __str__ (self):
         """
             Called whenever this object needs to be converted to a string.
@@ -72,5 +122,3 @@ class TreeNode ():
         beforeSplitData = "Before Split Branch: " + str(self.beforeSplitNode)
         afterSplitData = "After Split Branch: " + str(self.afterSplitNode)
         return ("%s\n%s\n%s\n%s") % (intro,data,beforeSplitData,afterSplitData)
-
-generateDungeon()
