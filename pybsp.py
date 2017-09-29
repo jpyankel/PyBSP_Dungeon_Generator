@@ -1,39 +1,90 @@
 import random
 
-def generateDungeon2DList (dungeonSize = (100, 100), minNodeSize = (20, 20)):
+def generateDungeon2DList (dungeonSize = (100, 100), minRoomSize = (20, 20)):
     """
         Generates a 2D list dungeon of size dungeonSize.
         Uses the Binary Space Partitioning Method:
         http://www.roguebasin.com/index.php?title=Basic_BSP_Dungeon_generation
     """
     # Create partitions for the rooms.
-    newTree = TreeNode((0,0), dungeonSize, minNodeSize)
+    newTree = TreeNode((0,0), dungeonSize, minRoomSize)
 
     # Create rooms within the given partitions:
     # Convert from tree to slices list:
     partitionList = newTree.getPartitionsList()
+    roomList = generateRooms(partitionList)
 
-def generateDungeonPartitionsVisualize(dungeonSize = (100, 100),
-    minNodeSize = (20, 20), winWidth=500, winHeight=500):
+def generateRooms (partitions, biasRatio=0.75, biasStrength=0):
+    """
+        Generates and returns a list of rooms (tuples with 2 coordinate sets)
+         of random size limited by a list of partitions/boundaries.
+        If given a bias, it will attempt to make the room match biasRatio of the
+         partition with biasStrength.
+    """
+    roomList = []
+    for bounds in partitions:
+        xAvg = (bounds[2] + bounds[0]) // 2
+        # The random starting point:
+        xOriginRand = random.randrange(bounds[0], xAvg)
+        # The point we are aiming towards:
+        # Formula is lower + avg - avg*bias
+        xOriginBiasPoint = bounds[0] + xAvg - xAvg * biasRatio * biasStrength
+        # The final value:
+        roomOriginX = xOriginRand + (xOriginBiasPoint - xOriginRand)\
+                        * biasStrength
+
+        yAvg = (bounds[3]+bounds[1]) // 2
+        yOriginRand = random.randrange(bounds[1], yAvg)
+        yOriginBiasPoint = bounds[1] + yAvg - yAvg * biasRatio * biasStrength
+        roomOriginY = yOriginRand + (yOriginBiasPoint - yOriginRand)\
+                        * biasStrength
+        # Minus 1 to account for rounding error
+        xEndRand = random.randrange(xAvg, bounds[2])
+        xEndBiasPoint = bounds[2] - xAvg + xAvg * biasRatio * biasStrength
+        roomEndX = xEndRand + (xEndBiasPoint - xEndRand) * biasStrength
+
+        yEndRand = random.randrange(yAvg, bounds[3])
+        yEndBiasPoint = bounds[3] - yAvg + yAvg * biasRatio * biasStrength
+        roomEndY = yEndRand + (yEndBiasPoint - yEndRand) * biasStrength
+
+        roomList.append( (roomOriginX, roomOriginY, roomEndX, roomEndY) )
+    return roomList
+
+def generateDungeonVisualize(dungeonSize = (100, 100),
+    minNodeSize = (20, 20), **kwargs):
     """
         Generates a dungeon tree and uses TKinter to draw a visual of the
          partitions.
     """
-    dungeonTree = TreeNode((0,0), dungeonSize, minNodeSize)
-    partitions = dungeonTree.getPartitionsList()
-    print("Displaying partitions:", partitions)
-    _visualizeDungeonTreePartitions(dungeonSize, partitions, winWidth,
-                                    winHeight)
+    # Set up kwarg variables:
+    winWidth = kwargs["winWidth"] if "winWidth" in kwargs else 500
+    winHeight = kwargs["winHeight"] if "winHeight" in kwargs else 500
+    biasRatio = kwargs["biasRatio"] if "biasRatio" in kwargs else 0.75
+    biasStrength = kwargs["biasStrength"] if "biasStrength" in kwargs else 0
 
-def _visualizeDungeonTreePartitions (originalSize, partitions, winWidth,
-                                     winHeight):
-    """
-        Draws partitions in a Tkinter window given a list of partitions.
-    """
     import tkinter as tk
     root = tk.Tk()
     canvas = tk.Canvas(root, width=winWidth, height=winHeight)
     canvas.pack()
+
+    dungeonTree = TreeNode((0,0), dungeonSize, minNodeSize)
+    partitions = dungeonTree.getPartitionsList()
+    print("Displaying partitions:", partitions, '\n')
+    _visualizeDungeonTreePartitions(canvas, dungeonSize, partitions, winWidth,
+                                    winHeight)
+    roomsList = generateRooms(partitions, biasRatio, biasStrength)
+    print("Displaying rooms:", roomsList)
+    _visualizeDungeonRooms(canvas, dungeonSize, roomsList, winWidth, winHeight)
+
+    root.mainloop() # Note, Will block until window is closed!
+
+
+def _visualizeDungeonTreePartitions (canvas, originalSize, partitions, winWidth,
+                                     winHeight):
+    """
+        Draws partitions in a Tkinter window given a list of partitions.
+    """
+
     # Because our window size may not match our original size, we need scale:
     scaleX = winWidth/originalSize[0]
     scaleY = winHeight/originalSize[1]
@@ -45,7 +96,24 @@ def _visualizeDungeonTreePartitions (originalSize, partitions, winWidth,
         endX = bounds[2]*scaleX - margin
         endY = bounds[3]*scaleY - margin
         canvas.create_rectangle(initialX, initialY, endX, endY, width=margin)
-    root.mainloop() # Note, Will block until window is closed!
+
+def _visualizeDungeonRooms (canvas, originalSize, roomList, winWidth,
+                            winHeight):
+    """
+        Draws rooms in a Tkinter window given a list of rooms.
+    """
+    # Because our window size may not match our original size, we need scale:
+    scaleX = winWidth/originalSize[0]
+    scaleY = winHeight/originalSize[1]
+    margin = 2
+    # Draw filled rectangles with the dimensions of our rooms:
+    for room in roomList:
+        initialX = room[0]*scaleX + margin
+        initialY = room[1]*scaleY + margin
+        endX = room[2]*scaleX - margin
+        endY = room[3]*scaleY - margin
+        canvas.create_rectangle(initialX, initialY, endX, endY, width=0,
+                                fill="black")
 
 class TreeNode ():
     """
@@ -122,3 +190,5 @@ class TreeNode ():
         beforeSplitData = "Before Split Branch: " + str(self.beforeSplitNode)
         afterSplitData = "After Split Branch: " + str(self.afterSplitNode)
         return ("%s\n%s\n%s\n%s") % (intro,data,beforeSplitData,afterSplitData)
+
+generateDungeonVisualize(bias=1, biasStrength=1)
