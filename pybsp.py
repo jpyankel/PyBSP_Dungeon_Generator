@@ -30,22 +30,22 @@ def generateRooms (partitions, biasRatio=0.75, biasStrength=0):
         # Formula is lower + avg - avg*bias
         xOriginBiasPoint = bounds[0] + xAvg - xAvg * biasRatio * biasStrength
         # The final value:
-        roomOriginX = xOriginRand + (xOriginBiasPoint - xOriginRand)\
-                        * biasStrength
+        roomOriginX = int(xOriginRand + (xOriginBiasPoint - xOriginRand)\
+                        * biasStrength)
 
         yAvg = (bounds[3]+bounds[1]) // 2
         yOriginRand = random.randrange(bounds[1], yAvg)
         yOriginBiasPoint = bounds[1] + yAvg - yAvg * biasRatio * biasStrength
-        roomOriginY = yOriginRand + (yOriginBiasPoint - yOriginRand)\
-                        * biasStrength
-        # Minus 1 to account for rounding error
+        roomOriginY = int(yOriginRand + (yOriginBiasPoint - yOriginRand)\
+                        * biasStrength)
+
         xEndRand = random.randrange(xAvg, bounds[2])
         xEndBiasPoint = bounds[2] - xAvg + xAvg * biasRatio * biasStrength
-        roomEndX = xEndRand + (xEndBiasPoint - xEndRand) * biasStrength
+        roomEndX = int(xEndRand + (xEndBiasPoint - xEndRand) * biasStrength)
 
         yEndRand = random.randrange(yAvg, bounds[3])
         yEndBiasPoint = bounds[3] - yAvg + yAvg * biasRatio * biasStrength
-        roomEndY = yEndRand + (yEndBiasPoint - yEndRand) * biasStrength
+        roomEndY = int(yEndRand + (yEndBiasPoint - yEndRand) * biasStrength)
 
         roomList.append( (roomOriginX, roomOriginY, roomEndX, roomEndY) )
     return roomList
@@ -57,8 +57,8 @@ def generateDungeonVisualize(dungeonSize = (100, 100),
          partitions.
     """
     # Set up kwarg variables:
-    winWidth = kwargs["winWidth"] if "winWidth" in kwargs else 500
-    winHeight = kwargs["winHeight"] if "winHeight" in kwargs else 500
+    winWidth = kwargs["winWidth"] if "winWidth" in kwargs else dungeonSize[0]
+    winHeight = kwargs["winHeight"] if "winHeight" in kwargs else dungeonSize[1]
     biasRatio = kwargs["biasRatio"] if "biasRatio" in kwargs else 0.75
     biasStrength = kwargs["biasStrength"] if "biasStrength" in kwargs else 0
 
@@ -72,9 +72,12 @@ def generateDungeonVisualize(dungeonSize = (100, 100),
     print("Displaying partitions:", partitions, '\n')
     _visualizeDungeonTreePartitions(canvas, dungeonSize, partitions, winWidth,
                                     winHeight)
-    roomsList = generateRooms(partitions, biasRatio, biasStrength)
-    print("Displaying rooms:", roomsList)
-    _visualizeDungeonRooms(canvas, dungeonSize, roomsList, winWidth, winHeight)
+    roomList = generateRooms(partitions, biasRatio, biasStrength)
+    print("Displaying rooms:", roomList)
+    _visualizeDungeonRooms(canvas, dungeonSize, roomList, winWidth, winHeight)
+
+    _visualizeDungeonDimensions(canvas, dungeonSize, partitions, roomList,
+                                winWidth, winWidth)
 
     root.mainloop() # Note, Will block until window is closed!
 
@@ -96,6 +99,32 @@ def _visualizeDungeonTreePartitions (canvas, originalSize, partitions, winWidth,
         endX = bounds[2]*scaleX - margin
         endY = bounds[3]*scaleY - margin
         canvas.create_rectangle(initialX, initialY, endX, endY, width=margin)
+
+def _visualizeDungeonDimensions (canvas, originalSize, partitions, roomList,
+                                 winWidth, winHeight):
+    """
+        Draws the dimensions of each partition and room in text.
+    """
+    scaleX = winWidth/originalSize[0]
+    scaleY = winHeight/originalSize[1]
+    margin = 2
+    textMargin = 10
+    # Draw blank rectangles with borders to represent partitions:
+    for bounds in partitions:
+        initialX = bounds[0]*scaleX + margin
+        initialY = bounds[1]*scaleY + margin
+        endX = bounds[2]*scaleX - margin
+        endY = bounds[3]*scaleY - margin
+        canvas.create_text(initialX + textMargin , initialY + textMargin,
+                           text=str(bounds), fill="blue", anchor="w")
+
+    for room in roomList:
+        initialX = room[0]*scaleX + margin
+        initialY = room[1]*scaleY + margin
+        endX = room[2]*scaleX - margin
+        endY = room[3]*scaleY - margin
+        canvas.create_text((initialX+endX)//2, (initialY+endY)//2,
+                           text=str(bounds), fill="red")
 
 def _visualizeDungeonRooms (canvas, originalSize, roomList, winWidth,
                             winHeight):
@@ -191,4 +220,4 @@ class TreeNode ():
         afterSplitData = "After Split Branch: " + str(self.afterSplitNode)
         return ("%s\n%s\n%s\n%s") % (intro,data,beforeSplitData,afterSplitData)
 
-generateDungeonVisualize(bias=1, biasStrength=1)
+generateDungeonVisualize(biasRatio=0.9, biasStrength=1, winWidth=500, winHeight=500)
