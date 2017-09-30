@@ -27,24 +27,23 @@ def generateRooms (partitions, biasRatio=0.75, biasStrength=0):
         # The random starting point:
         xOriginRand = random.randrange(bounds[0], xAvg)
         # The point we are aiming towards:
-        # Formula is lower + avg - avg*bias
-        xOriginBiasPoint = bounds[0] + xAvg - xAvg * biasRatio * biasStrength
+        xOriginBiasPoint = bounds[0] + (bounds[2] - bounds[0]) * (1-biasRatio)
         # The final value:
         roomOriginX = int(xOriginRand + (xOriginBiasPoint - xOriginRand)\
                         * biasStrength)
 
-        yAvg = (bounds[3]+bounds[1]) // 2
+        yAvg = (bounds[3] + bounds[1]) // 2
         yOriginRand = random.randrange(bounds[1], yAvg)
-        yOriginBiasPoint = bounds[1] + yAvg - yAvg * biasRatio * biasStrength
+        yOriginBiasPoint = bounds[1] + (bounds[3] - bounds[1]) * (1-biasRatio)
         roomOriginY = int(yOriginRand + (yOriginBiasPoint - yOriginRand)\
                         * biasStrength)
 
         xEndRand = random.randrange(xAvg, bounds[2])
-        xEndBiasPoint = bounds[2] - xAvg + xAvg * biasRatio * biasStrength
+        xEndBiasPoint = bounds[2] - (bounds[2] - bounds[0]) * (1-biasRatio)
         roomEndX = int(xEndRand + (xEndBiasPoint - xEndRand) * biasStrength)
 
         yEndRand = random.randrange(yAvg, bounds[3])
-        yEndBiasPoint = bounds[3] - yAvg + yAvg * biasRatio * biasStrength
+        yEndBiasPoint = bounds[3] - (bounds[3] - bounds[1]) * (1-biasRatio)
         roomEndY = int(yEndRand + (yEndBiasPoint - yEndRand) * biasStrength)
 
         roomList.append( (roomOriginX, roomOriginY, roomEndX, roomEndY) )
@@ -124,7 +123,7 @@ def _visualizeDungeonDimensions (canvas, originalSize, partitions, roomList,
         endX = room[2]*scaleX - margin
         endY = room[3]*scaleY - margin
         canvas.create_text((initialX+endX)//2, (initialY+endY)//2,
-                           text=str(bounds), fill="red")
+                           text=str(room), fill="red")
 
 def _visualizeDungeonRooms (canvas, originalSize, roomList, winWidth,
                             winHeight):
@@ -220,4 +219,4 @@ class TreeNode ():
         afterSplitData = "After Split Branch: " + str(self.afterSplitNode)
         return ("%s\n%s\n%s\n%s") % (intro,data,beforeSplitData,afterSplitData)
 
-generateDungeonVisualize(biasRatio=0.9, biasStrength=1, winWidth=500, winHeight=500)
+generateDungeonVisualize(biasRatio=.9, biasStrength=1, winWidth=500, winHeight=500)
