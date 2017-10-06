@@ -12,42 +12,7 @@ def generateDungeon2DList (dungeonSize = (100, 100), minRoomSize = (20, 20)):
     # Create rooms within the given partitions:
     # Convert from tree to slices list:
     partitionList = newTree.getPartitionsList()
-    roomList = generateRooms(partitionList)
-
-def generateRooms (partitions, biasRatio=0.75, biasStrength=0):
-    """
-        Generates and returns a list of rooms (tuples with 2 coordinate sets)
-         of random size limited by a list of partitions/boundaries.
-        If given a bias, it will attempt to make the room match biasRatio of the
-         partition with biasStrength.
-    """
-    roomList = []
-    for bounds in partitions:
-        xAvg = (bounds[2] + bounds[0]) // 2
-        # The random starting point:
-        xOriginRand = random.randrange(bounds[0], xAvg)
-        # The point we are aiming towards:
-        xOriginBiasPoint = bounds[0] + (bounds[2] - bounds[0]) * (1-biasRatio)
-        # The final value:
-        roomOriginX = int(xOriginRand + (xOriginBiasPoint - xOriginRand)\
-                        * biasStrength)
-
-        yAvg = (bounds[3] + bounds[1]) // 2
-        yOriginRand = random.randrange(bounds[1], yAvg)
-        yOriginBiasPoint = bounds[1] + (bounds[3] - bounds[1]) * (1-biasRatio)
-        roomOriginY = int(yOriginRand + (yOriginBiasPoint - yOriginRand)\
-                        * biasStrength)
-
-        xEndRand = random.randrange(xAvg, bounds[2])
-        xEndBiasPoint = bounds[2] - (bounds[2] - bounds[0]) * (1-biasRatio)
-        roomEndX = int(xEndRand + (xEndBiasPoint - xEndRand) * biasStrength)
-
-        yEndRand = random.randrange(yAvg, bounds[3])
-        yEndBiasPoint = bounds[3] - (bounds[3] - bounds[1]) * (1-biasRatio)
-        roomEndY = int(yEndRand + (yEndBiasPoint - yEndRand) * biasStrength)
-
-        roomList.append( (roomOriginX, roomOriginY, roomEndX, roomEndY) )
-    return roomList
+    roomList = generateTreeRooms(partitionList)
 
 def generateDungeonVisualize(dungeonSize = (100, 100),
     minNodeSize = (20, 20), **kwargs):
@@ -71,11 +36,12 @@ def generateDungeonVisualize(dungeonSize = (100, 100),
     print("Displaying partitions:", partitions, '\n')
     _visualizeDungeonTreePartitions(canvas, dungeonSize, partitions, winWidth,
                                     winHeight)
-    roomList = generateRooms(partitions, biasRatio, biasStrength)
-    print("Displaying rooms:", roomList)
-    _visualizeDungeonRooms(canvas, dungeonSize, roomList, winWidth, winHeight)
+    dungeonTree.generateTreeRooms(biasRatio, biasStrength)
+    roomsList = dungeonTree.getRoomsList()
+    print("Displaying rooms:", roomsList)
+    _visualizeDungeonRooms(canvas, dungeonSize, roomsList, winWidth, winHeight)
 
-    _visualizeDungeonDimensions(canvas, dungeonSize, partitions, roomList,
+    _visualizeDungeonDimensions(canvas, dungeonSize, partitions, roomsList,
                                 winWidth, winWidth)
 
     root.mainloop() # Note, Will block until window is closed!
@@ -155,37 +121,45 @@ class TreeNode ():
         self.beforeSplitNode = None
         self.afterSplitNode = None
         self.iteration = iteration # Used for str representation and debug.
+        self.roomBounds = None
+        self._growTree(minNodeSize)
 
+    def _growTree (self, minNodeSize):
+        """
+            Called every init, this splits the node randomly into two subnodes.
+        """
         isHorizontalSplit = random.random() >= 0.5
         if isHorizontalSplit:
-            sliceStart = origin[1]
-            sliceEnd = bounds[1]
+            sliceStart = self.origin[1]
+            sliceEnd = self.bounds[1]
             minSpacing = minNodeSize[1]
             # If we have enough space to slice given our minimum spacing:
             if not sliceStart + minSpacing >= sliceEnd - minSpacing:
                 splitPosition = random.randint(sliceStart + minSpacing,
                                                sliceEnd - minSpacing)
-                self.beforeSplitNode = TreeNode((origin[0], origin[1]),
-                                                (bounds[0], splitPosition),
-                                                minNodeSize, iteration+1)
-                self.afterSplitNode = TreeNode((origin[0], splitPosition),
-                                               (bounds[0], bounds[1]),
-                                               minNodeSize, iteration+1)
+                self.beforeSplitNode = TreeNode((self.origin[0],
+                                                self.origin[1]),
+                                                (self.bounds[0], splitPosition),
+                                                minNodeSize, self.iteration+1)
+                self.afterSplitNode = TreeNode((self.origin[0], splitPosition),
+                                               (self.bounds[0], self.bounds[1]),
+                                               minNodeSize, self.iteration+1)
         else:
             # The idea is the same for a vertical split, but our constraints are
             #  now about the x-axis
-            sliceStart = origin[0]
-            sliceEnd = bounds[0]
+            sliceStart = self.origin[0]
+            sliceEnd = self.bounds[0]
             minSpacing = minNodeSize[0]
             if not sliceStart + minSpacing >= sliceEnd - minSpacing:
                 splitPosition = random.randint(sliceStart + minSpacing,
                                                sliceEnd - minSpacing)
-                self.beforeSplitNode = TreeNode((origin[0], origin[1]),
-                                                (splitPosition, bounds[1]),
-                                                minNodeSize, iteration+1)
-                self.afterSplitNode = TreeNode((splitPosition, origin[1]),
-                                               (bounds[0], bounds[1]),
-                                               minNodeSize, iteration+1)
+                self.beforeSplitNode = TreeNode((self.origin[0],
+                                                self.origin[1]),
+                                                (splitPosition, self.bounds[1]),
+                                                minNodeSize, self.iteration+1)
+                self.afterSplitNode = TreeNode((splitPosition, self.origin[1]),
+                                               (self.bounds[0], self.bounds[1]),
+                                               minNodeSize, self.iteration+1)
 
     def getPartitionsList (self, partitionList=[]):
         """
@@ -193,6 +167,7 @@ class TreeNode ():
             E.g. [(0,0,100,100)]
             Slices are found at the roots of this tree (the node which has no
              other nodes attached)
+            Used for visualization.
         """
         # If we are a root node, we add our bounds to the list:
         if self.beforeSplitNode == None or self.afterSplitNode == None:
@@ -207,6 +182,36 @@ class TreeNode ():
                 self.afterSplitNode.getPartitionsList(partitionList)
         return partitionList # This will only matter at the top element!
 
+    def getRoomsList (self, roomsList=[]):
+        """
+            Returns this tree's slices in list form.
+            E.g. [(75,50,97,90), (...)]
+            Used for Visualization
+        """
+        # If we have a room in the current node, then we add it to the list:
+        if self.roomBounds != None:
+            roomsList.append(self.roomBounds)
+        if self.beforeSplitNode != None:
+            self.beforeSplitNode.getRoomsList(roomsList)
+        if self.afterSplitNode != None:
+            self.afterSplitNode.getRoomsList(roomsList)
+        return roomsList
+
+    def generateTreeRooms (self, biasRatio, biasStrength):
+        """
+            Generates rooms for this tree.
+        """
+        # If we are a root node, we generate our room:
+        if self.beforeSplitNode == None and self.afterSplitNode == None:
+            self.roomBounds = generateRoom((self.origin[0], self.origin[1],
+                                           self.bounds[0], self.bounds[1]),
+                                           biasRatio=biasRatio,
+                                           biasStrength=biasStrength)
+        if self.beforeSplitNode != None:
+            self.beforeSplitNode.generateTreeRooms(biasRatio, biasStrength)
+        if self.afterSplitNode != None:
+            self.afterSplitNode.generateTreeRooms(biasRatio, biasStrength)
+
     def __str__ (self):
         """
             Called whenever this object needs to be converted to a string.
@@ -218,5 +223,43 @@ class TreeNode ():
         beforeSplitData = "Before Split Branch: " + str(self.beforeSplitNode)
         afterSplitData = "After Split Branch: " + str(self.afterSplitNode)
         return ("%s\n%s\n%s\n%s") % (intro,data,beforeSplitData,afterSplitData)
+
+# --- Helper Functions ---
+def generateRoom (partition, biasRatio=0.75, biasStrength=0):
+    """
+        Generates and returns a room (tuple with 2 coordinate sets)
+         of random size limited by a the given partition/boundary (x0,y0,x1,y1).
+        If given a bias, it will attempt to make the room match biasRatio of the
+         partition with biasStrength.
+    """
+    # We will refer to the origin and bounds as follows (for readability):
+    x0, y0, x1, y1 = partition[0], partition[1], partition[2], partition[3]
+
+    xAvg = (x0 + x1) // 2
+    # The random starting point:
+    xOriginRand = random.randrange(x0, xAvg)
+    # The point we are aiming towards:
+    xOriginBiasPoint = x0 + (x1 - x0) * (1-biasRatio)
+    # The final value:
+    roomOriginX = int(xOriginRand + (xOriginBiasPoint - xOriginRand)\
+                    * biasStrength)
+
+    yAvg = (y0 + y1) // 2
+    yOriginRand = random.randrange(y0, yAvg)
+    yOriginBiasPoint = y0 + (y1 - y0) * (1-biasRatio)
+    roomOriginY = int(yOriginRand + (yOriginBiasPoint - yOriginRand)\
+                    * biasStrength)
+
+    xEndRand = random.randrange(xAvg, x1)
+    xEndBiasPoint = x1 - (x1 - x0) * (1-biasRatio)
+    roomEndX = int(xEndRand + (xEndBiasPoint - xEndRand) * biasStrength)
+
+    yEndRand = random.randrange(yAvg, y1)
+    yEndBiasPoint = y1 - (y1 - y0) * (1-biasRatio)
+    roomEndY = int(yEndRand + (yEndBiasPoint - yEndRand) * biasStrength)
+    return (roomOriginX, roomOriginY, roomEndX, roomEndY)
+
+# --- ---
+
 
 generateDungeonVisualize(biasRatio=.9, biasStrength=1, winWidth=500, winHeight=500)
