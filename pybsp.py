@@ -21,12 +21,10 @@ def generateDungeon2DList (dungeonSize = (100, 100), minNodeSize = (20, 20),
     roomsList = dungeonTree.getRoomsList()
     # Generate bridges between this tree's rooms:
     bridgesList = generateTreeBridges(roomsList, maxBridgeWidth)
-    # In our 2D grid, rooms and bridges will count as floor:
-    areaList = roomsList[:]
-    areaList.extend(bridgesList)
     dungeon2D = [[0 for i in range(dungeonSize[0])] for j in range(dungeonSize[1])]
-    # Go through each tile in the areaList and fill in dungeon2D's floor:
-    for bounds in areaList:
+    # In our 2D grid, rooms and bridges will count as floor:
+    # Go through each tile in each List and fill in dungeon2D's floor:
+    for bounds in roomsList:
         x0 = min(bounds[0], bounds[2])
         y0 = min(bounds[1], bounds[3])
         x1 = max(bounds[0], bounds[2])
@@ -34,7 +32,64 @@ def generateDungeon2DList (dungeonSize = (100, 100), minNodeSize = (20, 20),
         for rowNum in range(y0, y1):
             for colNum in range(x0, x1):
                 dungeon2D[rowNum][colNum] = 1
+
+    for bounds in bridgesList:
+        x0 = min(bounds[0], bounds[2])
+        y0 = min(bounds[1], bounds[3])
+        x1 = max(bounds[0], bounds[2])
+        y1 = max(bounds[1], bounds[3])
+
+        # Account for width=0 bridges
+        if (x1 - x0 == 0 and x1 + 1 < dungeonSize[0]):
+            x1 += 1
+        elif (x1 - x0 == 0 and x0 - 1 >= 0):
+            x0 -= 1
+
+        if (y1 - y0 == 0 and y1 + 1 < dungeonSize[1]):
+            y1 += 1
+        elif (y1 - y0 == 0 and y0 - 1 >= 0):
+            y0 -= 1
+
+        for rowNum in range(y0, y1):
+            for colNum in range(x0, x1):
+                dungeon2D[rowNum][colNum] = 1
     return dungeon2D
+
+def generateDungeonVisualizeTiles (dungeonSize = (100, 100),
+                                   minNodeSize = (20, 20), **kwargs):
+    """
+        Generates a more simple, tile-based image from the dungeon generation.
+    """
+    # Set up kwarg variables:
+    winWidth = kwargs["winWidth"] if "winWidth" in kwargs else dungeonSize[0]
+    winHeight = kwargs["winHeight"] if "winHeight" in kwargs else dungeonSize[1]
+    biasRatio = kwargs["biasRatio"] if "biasRatio" in kwargs else 0.75
+    biasStrength = kwargs["biasStrength"] if "biasStrength" in kwargs else 0
+    maxBridgeWidth = kwargs["maxBridgeWidth"] if "maxBridgeWidth" in kwargs else 1
+    tileMargin = kwargs["tileMargin"] if "tileMargin" in kwargs else 2
+
+    import tkinter as tk
+    root = tk.Tk()
+    canvas = tk.Canvas(root, width=winWidth, height=winHeight)
+    canvas.pack()
+
+    dungeonList = generateDungeon2DList(dungeonSize, minNodeSize,
+                                        biasRatio=biasRatio,
+                                        biasStrength=biasStrength,
+                                        maxBridgeWidth=maxBridgeWidth)
+
+    tileWidth = (winWidth) // dungeonSize[0]
+    tileHeight = (winWidth) // dungeonSize[1]
+    for rowIndex in range(len(dungeonList)):
+        for colIndex in range(len(dungeonList[rowIndex])):
+            x0 = colIndex * tileWidth + tileMargin
+            x1 = x0 + tileWidth - tileMargin
+            y0 = rowIndex * tileHeight + tileMargin
+            y1 = y0 + tileHeight - tileMargin
+            color = "grey" if dungeonList[rowIndex][colIndex] == 1 else "white"
+            canvas.create_rectangle(x0, y0, x1, y1, fill=color)
+
+    root.mainloop() # Note, Will block until window is closed!
 
 def generateDungeonVisualize(dungeonSize = (100, 100),
     minNodeSize = (20, 20), **kwargs):
@@ -442,10 +497,21 @@ if __name__ == "__main__": # If we aren't used as a module, do the visualization
                         help='Display window size.')
     parser.add_argument('--bridgeWidth', default=1, type=int,
                         help='Maximum width of the bridges. 1 translates to +- 1. Must be non-negative.')
+    parser.add_argument('--visualizeTiles', default=False, type=bool, nargs="?", const=True,
+                        help='Use grid/tile visualization?')
     args = parser.parse_args()
-    generateDungeonVisualize(args.dungeonSize, args.minNodeSize,
-                             biasRatio=args.biasRatio,
-                             biasStrength=args.biasStrength,
-                             winWidth=args.winSize[0],
-                             winHeight=args.winSize[1],
-                             maxBridgeWidth=args.bridgeWidth)
+
+    if args.visualizeTiles == True:
+        generateDungeonVisualizeTiles(args.dungeonSize, args.minNodeSize,
+                                      biasRatio=args.biasRatio,
+                                      biasStrength=args.biasStrength,
+                                      winWidth=args.winSize[0],
+                                      winHeight=args.winSize[1],
+                                      maxBridgeWidth=args.bridgeWidth)
+    else:
+        generateDungeonVisualize(args.dungeonSize, args.minNodeSize,
+                                 biasRatio=args.biasRatio,
+                                 biasStrength=args.biasStrength,
+                                 winWidth=args.winSize[0],
+                                 winHeight=args.winSize[1],
+                                 maxBridgeWidth=args.bridgeWidth)

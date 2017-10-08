@@ -14,6 +14,9 @@ This project now supports Argparse when run as "\__main__". Here are a list of o
 - --biasStrength floatbetween0&1
 - --winSize int int
 - --bridgeWidth positiveint
+- --visualizeTiles
+
+Run pybsp.py with the optional `--visualizeTiles` argument to view the 2D List output in grid form. Warning, though, it can be slow.
 
 Please run `python pybsp.py -h` for more information.
 
