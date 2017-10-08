@@ -1,18 +1,37 @@
 import random
 
-def generateDungeon2DList (dungeonSize = (100, 100), minRoomSize = (20, 20)):
+def generateDungeon2DList (dungeonSize = (100, 100), minNodeSize = (20, 20),
+                           **kwargs):
     """
         Generates a 2D list dungeon of size dungeonSize.
         Uses the Binary Space Partitioning Method:
         http://www.roguebasin.com/index.php?title=Basic_BSP_Dungeon_generation
     """
-    # Create partitions for the rooms.
-    newTree = TreeNode((0,0), dungeonSize, minRoomSize)
+    biasRatio = kwargs["biasRatio"] if "biasRatio" in kwargs else 0.75
+    biasStrength = kwargs["biasStrength"] if "biasStrength" in kwargs else 0
+    maxBridgeWidth = kwargs["maxBridgeWidth"] if "maxBridgeWidth" in kwargs else 1
+
+    # Create dungeon tree with partitions:
+    dungeonTree = TreeNode((0,0), dungeonSize, minNodeSize)
+    partitions = dungeonTree.getPartitionsList()
 
     # Create rooms within the given partitions:
     # Convert from tree to slices list:
-    partitionList = newTree.getPartitionsList()
-    roomList = generateTreeRooms(partitionList)
+    dungeonTree.generateTreeRooms(biasRatio, biasStrength)
+    roomsList = dungeonTree.getRoomsList()
+    # Generate bridges between this tree's rooms:
+    bridgesList = generateTreeBridges(roomsList, maxBridgeWidth)
+    # In our 2D grid, rooms and bridges will count as floor:
+    areaList = roomsList[:]
+    areaList.extend(bridgesList)
+    dungeon2D = [[0 for i in range(dungeonSize[0])] for j in range(dungeonSize[1])]
+    # Go through each tile in the areaList and fill in dungeon2D's floor:
+    for bounds in areaList:
+        x0, y0, x1, y1 = bounds[0], bounds[1], bounds[2], bounds[3]
+        for rowNum in range(y0, y1):
+            for colNum in range(x0, x1):
+                dungeon2D[rowNum][colNum] = 1
+    return dungeon2D
 
 def generateDungeonVisualize(dungeonSize = (100, 100),
     minNodeSize = (20, 20), **kwargs):
@@ -45,7 +64,7 @@ def generateDungeonVisualize(dungeonSize = (100, 100),
 
     _visualizeDungeonDimensions(canvas, dungeonSize, partitions, roomsList,
                                 winWidth, winWidth)
-    bridgesList = generateTreeBridges(roomsList)
+    bridgesList = generateTreeBridges(roomsList, maxBridgeWidth)
     print("Displaying Bridges: ", bridgesList)
     _visualizeRoomBridges(canvas, dungeonSize, bridgesList, winWidth, winHeight)
     root.mainloop() # Note, Will block until window is closed!
@@ -307,16 +326,13 @@ def generateBridge (room1, room2, maxBridgeWidth=1):
          - Pick a midpoint between the two edges on the predetermined axis.
          - Create three rectangles connecting these points.
     """
-    print (room1, room2)
     # Determine direction of the bridge:
     horizontalBridge = False
     direction = (room2[0] - room1[2], room2[1] - room1[3])
-    print(direction)
     if direction[0] == 0 or direction[1] == 0:
         # Rooms are already connected, return emptyList:
         return []
     elif min(abs(direction[0]), abs(direction[1])) == abs(direction[0]):
-        print("HORIZONTAL")
         # Horizontal takes ties.
         horizontalBridge = True
     bridge = [] # List of 3 rectangles
@@ -326,15 +342,15 @@ def generateBridge (room1, room2, maxBridgeWidth=1):
         # Pick point range on right or left edge:
         if direction[0] > 0: # Going right
             bridgeStartX = room1[2]
-            bridgeStartY = random.randint(room1[1], room1[3])
+            bridgeStartY = random.randint(min(room1[1], room1[3]), max(room1[1], room1[3]))
             bridgeEndX = room2[0]
-            bridgeEndY = random.randint(room2[1], room2[3])
+            bridgeEndY = random.randint(min(room2[1], room2[3]), max(room2[1], room2[3]))
             bridgeMidpoint = random.randint(min(room1[2], room2[0]), max(room1[2], room2[0]))
         elif direction[0] < 0: # Going left, we instead bridge 2 to 1:
             bridgeStartX = room2[2]
-            bridgeStartY = random.randint(room2[1], room2[3])
+            bridgeStartY = random.randint(min(room2[1], room2[3]), max(room2[1], room2[3]))
             bridgeEndX = room1[0]
-            bridgeEndY = random.randint(room1[1], room1[3])
+            bridgeEndY = random.randint(min(room1[1], room1[3]), max(room1[1], room1[3]))
             bridgeMidpoint = random.randint(min(room1[0], room2[2]), max(room1[0], room2[2]))
         bridge.append((bridgeStartX, bridgeStartY - bridgeWidth,
                       bridgeMidpoint, bridgeStartY + bridgeWidth))
@@ -345,15 +361,15 @@ def generateBridge (room1, room2, maxBridgeWidth=1):
     else:
         if direction[1] < 0: # Going down
             bridgeStartY = room1[3]
-            bridgeStartX = random.randint(room1[0], room1[2])
+            bridgeStartX = random.randint(min(room1[0], room1[2]), max(room1[0], room1[2]))
             bridgeEndY = room2[1]
-            bridgeEndX = random.randint(room2[0], room2[2])
+            bridgeEndX = random.randint(min(room2[0], room2[2]), max(room2[0], room2[2]))
             bridgeMidpoint = random.randint(min(room1[3], room2[1]), max(room1[3], room2[1])) # Midpoint in y
         elif direction[1] > 0: # Going up
             bridgeStartY = room2[3]
-            bridgeStartX = random.randint(room2[0], room2[2])
+            bridgeStartX = random.randint(min(room2[0], room2[2]), max(room2[0], room2[2]))
             bridgeEndY = room1[1]
-            bridgeEndX = random.randint(room1[0], room1[2])
+            bridgeEndX = random.randint(min(room1[0], room1[2]), max(room1[0], room1[2]))
             bridgeMidpoint = random.randint(min(room2[3], room1[1]), max(room2[3], room1[1]))
         bridge.append((bridgeStartX - bridgeWidth, bridgeStartY,
                       bridgeStartX + bridgeWidth, bridgeMidpoint))
@@ -363,7 +379,7 @@ def generateBridge (room1, room2, maxBridgeWidth=1):
                       bridgeEndX + bridgeWidth, bridgeEndY))
     return bridge
 
-def generateTreeBridges (roomList):
+def generateTreeBridges (roomList, maxBridgeWidth=1):
     """
         Given a list of rooms, returns a list of rect. representing bridges.
         Attempts to connect each room to the closest room not already connected.
@@ -379,7 +395,7 @@ def generateTreeBridges (roomList):
         roomsLeft.remove(currentRoom)
         closestRoom = findClosestRoom(currentRoom, roomsLeft)
         if (closestRoom):
-            bridges.extend(generateBridge(currentRoom, closestRoom))
+            bridges.extend(generateBridge(currentRoom, closestRoom, maxBridgeWidth))
             currentRoom = closestRoom
         else:
             # No more rooms left
@@ -408,5 +424,5 @@ def findClosestRoom (room, roomList):
     return currentClosest
 # --- ---
 
-
-generateDungeonVisualize(biasRatio=0.9, biasStrength=1, winWidth=500, winHeight=500)
+if __name__ == "__main__": # If we aren't used as a module, do the visualization
+    generateDungeonVisualize(biasRatio=0.9, biasStrength=1, winWidth=500, winHeight=500)
