@@ -27,7 +27,10 @@ def generateDungeon2DList (dungeonSize = (100, 100), minNodeSize = (20, 20),
     dungeon2D = [[0 for i in range(dungeonSize[0])] for j in range(dungeonSize[1])]
     # Go through each tile in the areaList and fill in dungeon2D's floor:
     for bounds in areaList:
-        x0, y0, x1, y1 = bounds[0], bounds[1], bounds[2], bounds[3]
+        x0 = min(bounds[0], bounds[2])
+        y0 = min(bounds[1], bounds[3])
+        x1 = max(bounds[0], bounds[2])
+        y1 = max(bounds[1], bounds[3])
         for rowNum in range(y0, y1):
             for colNum in range(x0, x1):
                 dungeon2D[rowNum][colNum] = 1
@@ -141,10 +144,10 @@ def _visualizeRoomBridges (canvas, originalSize, bridgeList, winWidth,
     scaleY = winHeight/originalSize[1]
     margin = 2
     for bridge in bridgeList:
-        initialX = bridge[0]*scaleX
-        initialY = bridge[1]*scaleY
-        endX = bridge[2]*scaleX
-        endY = bridge[3]*scaleY
+        initialX = min(bridge[0],bridge[2])*scaleX
+        initialY = min(bridge[1],bridge[3])*scaleY
+        endX = max(bridge[0],bridge[2])*scaleX
+        endY = max(bridge[1],bridge[3])*scaleY
         canvas.create_rectangle(initialX, initialY, endX, endY, width=0,
                                 fill="grey")
 
