@@ -25,6 +25,7 @@ def generateDungeonVisualize(dungeonSize = (100, 100),
     winHeight = kwargs["winHeight"] if "winHeight" in kwargs else dungeonSize[1]
     biasRatio = kwargs["biasRatio"] if "biasRatio" in kwargs else 0.75
     biasStrength = kwargs["biasStrength"] if "biasStrength" in kwargs else 0
+    maxBridgeWidth = kwargs["maxBridgeWidth"] if "maxBridgeWidth" in kwargs else 1
 
     import tkinter as tk
     root = tk.Tk()
@@ -37,16 +38,19 @@ def generateDungeonVisualize(dungeonSize = (100, 100),
     _visualizeDungeonTreePartitions(canvas, dungeonSize, partitions, winWidth,
                                     winHeight)
     dungeonTree.generateTreeRooms(biasRatio, biasStrength)
+
     roomsList = dungeonTree.getRoomsList()
     print("Displaying rooms:", roomsList)
     _visualizeDungeonRooms(canvas, dungeonSize, roomsList, winWidth, winHeight)
 
     _visualizeDungeonDimensions(canvas, dungeonSize, partitions, roomsList,
                                 winWidth, winWidth)
-
+    bridgesList = generateTreeBridges(roomsList)
+    print("Displaying Bridges: ", bridgesList)
+    _visualizeRoomBridges(canvas, dungeonSize, bridgesList, winWidth, winHeight)
     root.mainloop() # Note, Will block until window is closed!
 
-
+# --- Visualization Helper Functions ---
 def _visualizeDungeonTreePartitions (canvas, originalSize, partitions, winWidth,
                                      winHeight):
     """
@@ -108,6 +112,24 @@ def _visualizeDungeonRooms (canvas, originalSize, roomList, winWidth,
         endY = room[3]*scaleY - margin
         canvas.create_rectangle(initialX, initialY, endX, endY, width=0,
                                 fill="black")
+
+def _visualizeRoomBridges (canvas, originalSize, bridgeList, winWidth,
+                             winHeight):
+    """
+        Draws room bridges in a tkinter canvas.
+    """
+    scaleX = winWidth/originalSize[0]
+    scaleY = winHeight/originalSize[1]
+    margin = 2
+    for bridge in bridgeList:
+        initialX = bridge[0]*scaleX
+        initialY = bridge[1]*scaleY
+        endX = bridge[2]*scaleX
+        endY = bridge[3]*scaleY
+        canvas.create_rectangle(initialX, initialY, endX, endY, width=0,
+                                fill="grey")
+
+# --- ---
 
 class TreeNode ():
     """
@@ -182,6 +204,18 @@ class TreeNode ():
                 self.afterSplitNode.getPartitionsList(partitionList)
         return partitionList # This will only matter at the top element!
 
+    def getRoomBridges (self, bridgesList=[]):
+        """
+            Returns a list of rects representing bridges between rooms
+             throughout the entire dungeon tree.
+        """
+        bridgesList.extend(self.bridges)
+        if self.beforeSplitNode != None:
+            self.beforeSplitNode.getRoomBridges(bridgesList)
+        if self.afterSplitNode != None:
+            self.afterSplitNode.getRoomBridges(bridgesList)
+        return bridgesList
+
     def getRoomsList (self, roomsList=[]):
         """
             Returns this tree's slices in list form.
@@ -224,7 +258,7 @@ class TreeNode ():
         afterSplitData = "After Split Branch: " + str(self.afterSplitNode)
         return ("%s\n%s\n%s\n%s") % (intro,data,beforeSplitData,afterSplitData)
 
-# --- Helper Functions ---
+# --- Generation Helper Functions ---
 def generateRoom (partition, biasRatio=0.75, biasStrength=0):
     """
         Generates and returns a room (tuple with 2 coordinate sets)
@@ -259,7 +293,120 @@ def generateRoom (partition, biasRatio=0.75, biasStrength=0):
     roomEndY = int(yEndRand + (yEndBiasPoint - yEndRand) * biasStrength)
     return (roomOriginX, roomOriginY, roomEndX, roomEndY)
 
+def generateBridge (room1, room2, maxBridgeWidth=1):
+    """
+        Generates a bridge between two rooms. Returns this bridge in rect. form.
+         (x0, y0, x1, y1)
+        We assume due to earlier methods that rooms may meet but never
+         intersect.
+        Basic Algorithm:
+         - Get horizontal or vertical direction of bridge by finding the closest
+          edges.
+         - Pick a random point on the first room's edge.
+         - Pick a random point on the second room's edge.
+         - Pick a midpoint between the two edges on the predetermined axis.
+         - Create three rectangles connecting these points.
+    """
+    print (room1, room2)
+    # Determine direction of the bridge:
+    horizontalBridge = False
+    direction = (room2[0] - room1[2], room2[1] - room1[3])
+    print(direction)
+    if direction[0] == 0 or direction[1] == 0:
+        # Rooms are already connected, return emptyList:
+        return []
+    elif min(abs(direction[0]), abs(direction[1])) == abs(direction[0]):
+        print("HORIZONTAL")
+        # Horizontal takes ties.
+        horizontalBridge = True
+    bridge = [] # List of 3 rectangles
+    bridgeWidth = random.randint(0, maxBridgeWidth)
+    # Find point on edge of first room (will be a range of values):
+    if horizontalBridge:
+        # Pick point range on right or left edge:
+        if direction[0] > 0: # Going right
+            bridgeStartX = room1[2]
+            bridgeStartY = random.randint(room1[1], room1[3])
+            bridgeEndX = room2[0]
+            bridgeEndY = random.randint(room2[1], room2[3])
+            bridgeMidpoint = random.randint(min(room1[2], room2[0]), max(room1[2], room2[0]))
+        elif direction[0] < 0: # Going left, we instead bridge 2 to 1:
+            bridgeStartX = room2[2]
+            bridgeStartY = random.randint(room2[1], room2[3])
+            bridgeEndX = room1[0]
+            bridgeEndY = random.randint(room1[1], room1[3])
+            bridgeMidpoint = random.randint(min(room1[0], room2[2]), max(room1[0], room2[2]))
+        bridge.append((bridgeStartX, bridgeStartY - bridgeWidth,
+                      bridgeMidpoint, bridgeStartY + bridgeWidth))
+        bridge.append((bridgeMidpoint - bridgeWidth, bridgeStartY - bridgeWidth,
+                      bridgeMidpoint + bridgeWidth, bridgeEndY + bridgeWidth))
+        bridge.append((bridgeMidpoint, bridgeEndY - bridgeWidth,
+                      bridgeEndX, bridgeEndY + bridgeWidth))
+    else:
+        if direction[1] < 0: # Going down
+            bridgeStartY = room1[3]
+            bridgeStartX = random.randint(room1[0], room1[2])
+            bridgeEndY = room2[1]
+            bridgeEndX = random.randint(room2[0], room2[2])
+            bridgeMidpoint = random.randint(min(room1[3], room2[1]), max(room1[3], room2[1])) # Midpoint in y
+        elif direction[1] > 0: # Going up
+            bridgeStartY = room2[3]
+            bridgeStartX = random.randint(room2[0], room2[2])
+            bridgeEndY = room1[1]
+            bridgeEndX = random.randint(room1[0], room1[2])
+            bridgeMidpoint = random.randint(min(room2[3], room1[1]), max(room2[3], room1[1]))
+        bridge.append((bridgeStartX - bridgeWidth, bridgeStartY,
+                      bridgeStartX + bridgeWidth, bridgeMidpoint))
+        bridge.append((bridgeStartX - bridgeWidth, bridgeMidpoint - bridgeWidth,
+                      bridgeEndX + bridgeWidth, bridgeMidpoint + bridgeWidth))
+        bridge.append((bridgeEndX - bridgeWidth, bridgeMidpoint,
+                      bridgeEndX + bridgeWidth, bridgeEndY))
+    return bridge
+
+def generateTreeBridges (roomList):
+    """
+        Given a list of rooms, returns a list of rect. representing bridges.
+        Attempts to connect each room to the closest room not already connected.
+    """
+    bridges = []
+    roomsLeft = roomList[:]
+
+    # Keep bridging the closest room until we run out of rooms:
+    currentRoom = roomsLeft[0]
+    while True:
+        # Find closest room to the current room:
+        listWithoutCurrent = roomsLeft[:]
+        roomsLeft.remove(currentRoom)
+        closestRoom = findClosestRoom(currentRoom, roomsLeft)
+        if (closestRoom):
+            bridges.extend(generateBridge(currentRoom, closestRoom))
+            currentRoom = closestRoom
+        else:
+            # No more rooms left
+            break
+    return bridges
+
+def findClosestRoom (room, roomList):
+    """
+        Finds the closest room to 'room' in the roomList.
+        Distance is calculated by rectangle centers.
+    """
+    currentClosest = None
+    closestDistance = None
+    roomCenter = (room[0] + (room[0] + room[2]) // 2,
+                  room[1] + (room[1] + room[3]) // 2)
+    for compareRoom in roomList:
+        compareCenter = (compareRoom[0] + (compareRoom[0] + compareRoom[2]) // 2,
+                         compareRoom[1] + (compareRoom[1] + compareRoom[3]) // 2)
+        dist = ((compareCenter[0] - roomCenter[0]) ** 2 + (compareCenter[1] - roomCenter[1]) ** 2) ** 0.5
+        if currentClosest != None and dist < closestDistance:
+            currentClosest = compareRoom
+            closestDistance = dist
+        elif currentClosest == None:
+            currentClosest = compareRoom
+            closestDistance = dist
+    return currentClosest
 # --- ---
 
 
-generateDungeonVisualize(biasRatio=.9, biasStrength=1, winWidth=500, winHeight=500)
+generateDungeonVisualize(biasRatio=0.9, biasStrength=1, winWidth=500, winHeight=500)
