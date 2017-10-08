@@ -430,16 +430,19 @@ if __name__ == "__main__": # If we aren't used as a module, do the visualization
     parser.add_argument('--dungeonSize', default=(100,100), nargs='+', type=int,
                         help='Size of the dungeon to generate.')
     parser.add_argument('--minNodeSize', default=(20,20), nargs="+", type=int,
-                        help='Minimum size of the dungeon\'s smallest partitions')
+                        help='Minimum size of the dungeon\'s smallest partitions.')
     parser.add_argument('--biasRatio', default=0, type=float,
-                        help='Minimum size of the dungeon\'s smallest partitions')
+                        help='The ratio of the room to the partition.')
     parser.add_argument('--biasStrength', default=0, type=float,
-                        help='Minimum size of the dungeon\'s smallest partitions')
+                        help='The percent strength of the room\'s attempt to get to the biasRatio.')
     parser.add_argument('--winSize', default=(500, 500), nargs="+", type=int,
-                        help='Display window width.')
+                        help='Display window size.')
+    parser.add_argument('--bridgeWidth', default=1, type=int,
+                        help='Maximum width of the bridges. 1 translates to +- 1. Must be non-negative.')
     args = parser.parse_args()
     generateDungeonVisualize(args.dungeonSize, args.minNodeSize,
                              biasRatio=args.biasRatio,
                              biasStrength=args.biasStrength,
                              winWidth=args.winSize[0],
-                             winHeight=args.winSize[1])
+                             winHeight=args.winSize[1],
+                             maxBridgeWidth=args.bridgeWidth)
